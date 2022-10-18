@@ -1,2 +1,1 @@
-alphapose
-opencv-python
+py==3.7
