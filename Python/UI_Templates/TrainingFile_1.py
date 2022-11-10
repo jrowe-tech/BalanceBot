@@ -1,5 +1,6 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
-
+from threading import Thread
+import sys
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -101,11 +102,23 @@ class Ui_MainWindow(object):
         self.label_6.setText(_translate("MainWindow", "Stretches 4"))
 
 
-if __name__ == "__main__":
-    import sys
+def CreateWorkers():
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = QtWidgets.QMainWindow()
-    ui = Ui_MainWindow()
-    ui.setupUi(MainWindow)
-    MainWindow.show()
+    appThread = Thread(OpenApp(app, MainWindow))
+    appThread.start()
+    overrideThread = Thread(closeOnKey(MainWindow))
+    overrideThread.start()
     sys.exit(app.exec_())
+
+def OpenApp(app, window):
+    ui = Ui_MainWindow()
+    ui.setupUi(window)
+    window.show()
+
+
+def closeOnKey(window):
+    input("Hit Enter To Close App Manually")
+    window.close()
+
+CreateWorkers()
