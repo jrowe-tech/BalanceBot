@@ -1,7 +1,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from threading import Thread
 import sys
-
+#Fixing a few issues
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
@@ -107,8 +107,10 @@ def CreateWorkers():
     MainWindow = QtWidgets.QMainWindow()
     appThread = Thread(OpenApp(app, MainWindow))
     appThread.start()
+    print("Stopped")
     overrideThread = Thread(closeOnKey(MainWindow))
     overrideThread.start()
+    print("Passed")
     sys.exit(app.exec_())
 
 def OpenApp(app, window):
