@@ -54,8 +54,6 @@ class PoseDetection:
 
         return markedPoints, connectedJoints
 
-detection = PoseDetection()
-
 out, conns = detection.pose_detection_3d(cv2.imread("recorded_videos\\testImg.jpg"))
 print(out)
 print(conns)

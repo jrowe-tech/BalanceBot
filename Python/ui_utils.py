@@ -1,6 +1,6 @@
 # Custom Override Functions For Standardized Frame Utilities
 # Allows For MultiFrame Functionality Within One MainWindow Instance
-from PyQt5 import QtCore
+from PyQt5 import QtCore, QtGui, QtWidgets
 
 
 class Frame:
@@ -43,13 +43,57 @@ class Frame:
             component.hide()
 
     def OnFrameClose(self):
+        print(f"Frame Override Cleanup Function: {self.cleanFrames}")
         if self.cleanFrames is None:
             return
 
         self.cleanFrames()
 
     def OnFrameOpen(self):
-        if self.openFrames is not None:
+        print(f"Frame Override Startup Function: {self.setupFrames}")
+        if self.setupFrames is None:
             return
 
-        self.openFrames()
+        self.setupFrames()
+
+    def CreateFont(self, size=20, font=None):
+        base = QtGui.QFont()
+        base.setPointSize(size)
+        if font is not None:
+            base.setFamily(font)
+
+        return base
+
+    def CreateLabel(self, location: [int], text, size, font=None, objText=None, wordWrap=False):
+        temp = QtWidgets.QLabel(self.parent)
+        temp.setGeometry(QtCore.QRect(location[0], location[1],
+                                      location[2], location[3]))
+        temp.setFont(self.CreateFont(size, font))
+        temp.setWordWrap(wordWrap)
+        temp.setText(text)
+
+        if objText is None:
+            self.AddComponent(text + "_Label", temp)
+        else:
+            self.AddComponent(objText, temp)
+
+        return temp
+
+    def CreateButton(self, location: [int], functions, text="", font=None, objText=None):
+        temp = QtWidgets.QPushButton(self.parent)
+        temp.setGeometry(QtCore.QRect(location[0], location[1],
+                                      location[2], location[3]))
+
+        if objText is None:
+            self.AddComponent(text + '_Button', temp)
+        else:
+            self.AddComponent(objText, temp)
+
+        if text != "":
+            temp.setText(text)
+            if font is not None:
+                temp.setFont(font)
+
+        temp.clicked.connect(functions)
+
+        return temp
