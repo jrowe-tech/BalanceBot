@@ -108,8 +108,6 @@ def CreateWorkers():
     appThread = Thread(OpenApp(app, MainWindow))
     appThread.start()
     print("Stopped")
-    overrideThread = Thread(closeOnKey(MainWindow))
-    overrideThread.start()
     print("Passed")
     sys.exit(app.exec_())
 
@@ -118,9 +116,5 @@ def OpenApp(app, window):
     ui.setupUi(window)
     window.show()
 
-
-def closeOnKey(window):
-    input("Hit Enter To Close App Manually")
-    window.close()
 
 CreateWorkers()

@@ -4,13 +4,14 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 
 class Frame:
-    def __init__(self, widget):
+    def __init__(self, widget, ui):
         self.components = dict()
         self.active = False
         self.cleanFrames = None
         self.setupFrames = None
         self._translate = QtCore.QCoreApplication.translate
         self.parent = widget
+        self.ui = ui
 
     def AddComponent(self, name, component):
         component.setObjectName(name)
@@ -64,7 +65,7 @@ class Frame:
 
         return base
 
-    def CreateLabel(self, location: [int], text, size, font=None, objText=None, wordWrap=False):
+    def CreateLabel(self, location: [int], text, size, font=None, objText=None, wordWrap=False, center=False):
         temp = QtWidgets.QLabel(self.parent)
         temp.setGeometry(QtCore.QRect(location[0], location[1],
                                       location[2], location[3]))
@@ -77,23 +78,7 @@ class Frame:
         else:
             self.AddComponent(objText, temp)
 
-        return temp
-
-    def CreateButton(self, location: [int], functions, text="", font=None, objText=None):
-        temp = QtWidgets.QPushButton(self.parent)
-        temp.setGeometry(QtCore.QRect(location[0], location[1],
-                                      location[2], location[3]))
-
-        if objText is None:
-            self.AddComponent(text + '_Button', temp)
-        else:
-            self.AddComponent(objText, temp)
-
-        if text != "":
-            temp.setText(text)
-            if font is not None:
-                temp.setFont(font)
-
-        temp.clicked.connect(functions)
+        if center:
+            temp.setAlignment(QtCore.Qt.AlignCenter)
 
         return temp
