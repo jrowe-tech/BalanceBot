@@ -1,7 +1,7 @@
 # Custom Override Functions For Standardized Frame Utilities
 # Allows For MultiFrame Functionality Within One MainWindow Instance
 from PyQt5 import QtCore, QtGui, QtWidgets
-
+import os
 
 class Frame:
     def __init__(self, widget, ui):
@@ -57,11 +57,14 @@ class Frame:
 
         self.setupFrames()
 
-    def CreateFont(self, size=20, font=None):
+    def CreateFont(self, size=20, font=None, bold=False, italic=False):
         base = QtGui.QFont()
         base.setPointSize(size)
         if font is not None:
             base.setFamily(font)
+
+        base.setBold(bold)
+        base.setItalic(italic)
 
         return base
 
@@ -82,3 +85,19 @@ class Frame:
             temp.setAlignment(QtCore.Qt.AlignCenter)
 
         return temp
+
+
+class Thumbnail(QtWidgets.QWidget):
+    def __init__(self, path):
+        super().__init__()
+        self.path = path
+        self.thumbnail = QtGui.QPixmap(os.getcwd() + "/" + path)
+        self.image_label = QtWidgets.QLabel()
+        self.image_label.setPixmap(self.thumbnail)
+        self.containerWidget = QtWidgets.QWidget()
+        self.image_label.mousePressEvent = self.onMousePress
+        self.clickFunction = None
+
+    def onMousePress(self, event):
+        if self.clickFunction is not None:
+            lambda: self.clickFunction()
