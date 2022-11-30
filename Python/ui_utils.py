@@ -1,7 +1,10 @@
 # Custom Override Functions For Standardized Frame Utilities
 # Allows For MultiFrame Functionality Within One MainWindow Instance
 from PyQt5 import QtCore, QtGui, QtWidgets
+import json
+from glob import glob
 import os
+
 
 class Frame:
     def __init__(self, widget, ui):
@@ -88,10 +91,11 @@ class Frame:
 
 
 class Thumbnail(QtWidgets.QWidget):
-    def __init__(self, path):
+    def __init__(self, paths):
         super().__init__()
-        self.path = path
-        self.thumbnail = QtGui.QPixmap(os.getcwd() + "/" + path)
+        QtWidgets.QWidget.__init__(self)
+        self.image_data = paths
+        self.thumbnail = QtGui.QPixmap(paths[2])
         self.image_label = QtWidgets.QLabel()
         self.image_label.setPixmap(self.thumbnail)
         self.containerWidget = QtWidgets.QWidget()
@@ -100,4 +104,44 @@ class Thumbnail(QtWidgets.QWidget):
 
     def onMousePress(self, event):
         if self.clickFunction is not None:
-            lambda: self.clickFunction()
+            self.clickFunction()
+
+
+class VideoPlayer(QtWidgets.QWidget):
+    def __init__(self, size, parent):
+        super().__init__()
+        QtWidgets.QWidget.__init__(self)
+        self.setParent(parent)
+        self.graphicsView = QtWidgets.QGraphicsView(parent)
+        self.graphicsView.setGeometry(QtCore.QRect(size[0], size[1],
+                                                   size[2], size[3]))
+        self.scene = QtWidgets.QGraphicsScene()
+        self.pixmap = QtWidgets.QGraphicsPixmapItem()
+        self.scene.addItem(self.pixmap)
+        self.graphicsView.setScene(self.scene)
+        self.graphicsView.setHorizontalScrollBarPolicy(
+            QtCore.Qt.ScrollBarAlwaysOff)
+        self.graphicsView.setVerticalScrollBarPolicy(
+            QtCore.Qt.ScrollBarAlwaysOn)
+        self.pixmap.setPixmap(QtGui.QPixmap("pixmaps\\VideoDebug.jpg"))
+
+    def changeImage(self, image):
+        self.pixmap.setPixmap(image)
+
+
+# Check Saved JSON Log For Videos -> Return DATA
+def getVideos(path):
+    files = glob(path + '*.mp4') + glob(path + '*.avi')
+    videoObjects = []
+    with open("recorded_videos/data.json", mode='r') as log:
+        data = json.load(log)
+        for file in data:
+            if path + file['name'] in files:
+                videoObjects.append((file['name'], file['date'], "thumbnails\\" + file['thumbnail']))
+            else:
+                raise FileNotFoundError
+
+    return sorted(videoObjects, key=lambda x: x[1])
+
+
+print(getVideos("recorded_videos\\"))

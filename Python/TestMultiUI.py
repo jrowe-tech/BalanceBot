@@ -1,7 +1,10 @@
+import threading
 from PyQt5 import QtCore, QtGui, QtWidgets
-from ui_utils import Frame
+import ui_utils as utils
+from ui_utils import Frame, VideoPlayer
 import sys
-
+import cv2
+from time import sleep
 
 class UI:
     def __init__(self):
@@ -22,6 +25,8 @@ class UI:
         self.videoMenu.active = False
         self.trainingMenu = self.TrainingMenu(self.centralWidget, self)
         self.trainingMenu.active = False
+        self.videoPlayer = self.VideoPlayer(self.centralWidget, self)
+        self.videoPlayer.active = False
 
         # Connect Frames
         self.menu.ConnectButtons(self)
@@ -100,7 +105,7 @@ class UI:
 
             # Add Button Functions
             self.competition_button.clicked.connect(lambda:
-                                                    self.ui.changeFrame(self, self.ui.videoMenu))
+                                                    self.ui.changeFrame(self, self.ui.videoPlayer))
 
             self.training_button.clicked.connect(lambda:
                                                  self.ui.changeFrame(self, self.ui.trainingMenu))
@@ -109,6 +114,9 @@ class UI:
         def __init__(self, widget, ui):
             # Get Frame Functions
             super().__init__(widget, ui)
+
+            # Selected Video
+            self.selectedVideo = None
 
             # Create Title Label
             self.title_label = self.CreateLabel(
@@ -181,19 +189,18 @@ class UI:
             self.scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
             self.AddComponent("Video_ScrollArea", self.scroll)
 
-            #Create Grid Widget
+            # Create Grid Widget
             self.grid = QtWidgets.QGridLayout()
             self.gridWidget = QtWidgets.QWidget(self.parent)
             self.gridWidget.setGeometry(QtCore.QRect(0, 0, 1289, 529))
             self.scroll.setWidget(self.gridWidget)
             self.gridWidget.setLayout(self.grid)
-            for video in o
+            for video in utils.getVideos('recorded_videos\\'):
+                thumb = utils.Thumbnail(video)
+                thumb.clickFunction = lambda: self.changeActiveThumbnail(video[0])
 
-
-            # self.AddComponent("Video_ScrollBar", self.scroll)
-
-            # Create Widget Gridbox
-
+        def changeActiveThumbnail(self, target):
+            self.selectedVideo = target
 
         def ConnectButtons(self, ui):
             self.ui = ui
@@ -268,6 +275,179 @@ class UI:
             # Set Button Functionalities
             self.back_button.clicked.connect(lambda:
                                              ui.changeFrame(self, ui.menu))
+
+    class VideoPlayer(Frame):
+        def __init__(self, widget, ui):
+            super().__init__(widget, ui)
+
+            # Create VideoPlayer Widget
+            self.player = VideoPlayer((0, 0, 1380, 691), self.parent)
+            #self.AddComponent("VideoPlayer", self.player)
+
+            # Initialize VideoPlayer Parameters
+            self.frameCap = None
+            self.normalVideo = None
+            self.poseVideo = None
+            self.video = None
+            self.playThread = None
+            self.playing = False
+            self.frame = 0
+            self.playbackSpeed = 1.0
+
+            # Show Default Image
+            #self.player.changeImage(QtGui.QPixmap("pixmaps\\VideoDebug.jpg").scaled(
+            #    1380, 691, QtCore.Qt.KeepAspectRatio))
+
+            # Create Button Panel
+            self.panel = QtWidgets.QFrame(self.parent)
+            self.panel.setGeometry(QtCore.QRect(0, 690, 1381, 81))
+            self.panel.setFrameShape(QtWidgets.QFrame.Panel)
+            self.panel.setFrameShadow(QtWidgets.QFrame.Raised)
+            self.panel.setLineWidth(7)
+            self.AddComponent("VideoPlayer_Panel", self.panel)
+
+            # Create Overlay Button
+            self.overlay_button = QtWidgets.QPushButton(self.panel)
+            self.overlay_button.setGeometry(QtCore.QRect(1260, 10, 111, 61))
+            self.buttonFont = self.CreateFont(20)
+            self.overlay_button.setText("Overlay")
+            self.overlay_button.setFont(self.buttonFont)
+            self.overlay_button.clicked.connect(lambda: self.overlayToggle())
+            self.AddComponent("VideoPlayerOverlay_Button", self.overlay_button)
+
+            # Create Play / Pause Button
+            self.play_button = QtWidgets.QPushButton(self.panel)
+            self.play_button.setGeometry(QtCore.QRect(600, 10, 161, 61))
+            self.play_button.setFont(self.buttonFont)
+            self.play_button.setText("Play")
+            self.play_button.clicked.connect(lambda: self.play())
+            self.AddComponent("VideoPlayerPlay_Button", self.play_button)
+
+            # Create Next Frame Button
+            self.nextFrame_button = QtWidgets.QPushButton(self.panel)
+            self.nextFrame_button.setGeometry(QtCore.QRect(790, 10, 161, 61))
+            self.nextFrame_button.setFont(self.buttonFont)
+            self.nextFrame_button.setText("Next Frame")
+            self.nextFrame_button.clicked.connect(lambda: self.nextFrame())
+            self.AddComponent("VideoPlayerNextFrame_Button", self.nextFrame_button)
+
+            # Create Previous Frame Button
+            self.lastFrame_button = QtWidgets.QPushButton(self.panel)
+            self.lastFrame_button.setGeometry(QtCore.QRect(410, 10, 161, 61))
+            self.lastFrame_button.setFont(self.buttonFont)
+            self.lastFrame_button.setText("Last Frame")
+            self.lastFrame_button.clicked.connect(lambda: self.lastFrame())
+            self.AddComponent("VideoPlayerLastFrame_Button", self.lastFrame_button)
+
+            # Create Replay Button
+            self.replay_button = QtWidgets.QPushButton(self.panel)
+            self.replay_button.setGeometry(QtCore.QRect(10, 10, 141, 61))
+            self.replay_button.setFont(self.buttonFont)
+            self.replay_button.setText("Replay")
+            self.replay_button.clicked.connect(lambda: self.replay())
+            self.AddComponent("VideoPlayeReplay_Button", self.replay_button)
+
+            # Attach Camera Stream On Frame Open (WORK ON LATER):
+            # self.setupFrames = lambda: self.startDebugCameraStream()
+
+        def replay(self):
+            self.video.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            self.frame = 0
+
+            #Update Frame
+
+        def nextFrame(self):
+            if self.frame < self.frameCap:
+                # Read Active Frame Data And Process
+                _, data = self.video.read()
+                data = cv2.cvtColor(data, cv2.BGR2RGB)
+                image = QtGui.QImage(data, data.shape[1], data.shape[0],
+                                     QtGui.QImage.Format_RGB888)
+                pixmap = QtGui.QPixmap(image).scaled(1380, 691,
+                                                     QtCore.Qt.KeepAspectRatioByExpanding)
+                #self.player.changeImage(pixmap)
+
+                # Change Frames
+                self.frame += 1
+
+        def previousFrame(self):
+            if self.frame > 1:
+                # Change Current Video Frame To Previous Frame
+                self.video.set(cv2.CAP_PROP_POS_FRAMES, self.video.get(
+                    cv2.CAP_PROP_POS_FRAMES) - 2)
+
+                # Read Active Frame Data And Process
+                _, data = self.video.read()
+                data = cv2.cvtColor(data, cv2.BGR2RGB)
+                image = QtGui.QImage(data, data.shape[1], data.shape[0],
+                                     QtGui.QImage.Format_RGB888)
+                pixmap = QtGui.QPixmap(image).scaled(1380, 691,
+                                                     QtCore.Qt.KeepAspectRatioByExpanding)
+                #self.player.changeImage(pixmap)
+
+                self.frame -= 1
+
+
+        def play(self):
+            # Toggle Active Button Functions
+            if self.active:
+                self.play_button.setText("Play")
+            else:
+                self.play_button.setText("Pause")
+
+                # Start Daemon Thread
+                self.playThread = threading.Thread(target=self.startStream)
+                self.playThread.setDaemon(True)
+                self.playThread.start()
+
+            self.active = not self.active
+            self.nextFrame_button.blockSignals(self.active)
+            self.lastFrame_button.blockSignals(self.active)
+
+
+
+        def startStream(self):
+
+            tick = 1 / self.video.get(cv2.CAP_PROP_FPS)
+
+            # Start Video Stream Until Final Frame Reached OR Stopped
+            while self.frame < self.frameCap and not self.active:
+
+                # Read Active Frame Data And Process
+                _, data = self.video.read()
+                data = cv2.cvtColor(data, cv2.BGR2RGB)
+                image = QtGui.QImage(data, data.shape[1], data.shape[0],
+                                     QtGui.QImage.Format_RGB888)
+                pixmap = QtGui.QPixmap(image).scaled(1380, 691,
+                                                     QtCore.Qt.KeepAspectRatioByExpanding)
+                #self.player.changeImage(pixmap)
+
+                # Go To Next Frame
+                self.frame += 1
+
+                # Fix Frame Rate Issues
+                sleep(tick)
+
+
+        def overlayToggle(self):
+            if self.video == self.normalVideo:
+                self.video = self.poseVideo
+            else:
+                self.video = self.normalVideo
+
+        def debugCameraStream(self):
+            # Create Buttons For Overlay Functions
+            cam = cv2.VideoCapture(0)
+            for i in range(500):
+                active, frame = cam.read()
+                if active:
+                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    image = QtGui.QImage(frame, frame.shape[1], frame.shape[0],
+                                         QtGui.QImage.Format_RGB888)
+                    pixmap = QtGui.QPixmap(image).scaled(1380, 691, QtCore.Qt.KeepAspectRatioByExpanding)
+                    #self.player.changeImage(pixmap)
+                    if cv2.waitKey(1) & 0xFF == ord("q"):
+                        break
 
     def changeFrame(self, frameIn, frameOut):
         frameIn.active = False
