@@ -3,11 +3,10 @@ import json
 
 def createJSON(PATH):
 
-    json_obj = []
-    json_obj.append({
+    json_obj = [{
         'date_created': '01-01-2015',
         'name': '01-01-2015.mp4',
-        })
+    }]
     #Write the object to file.
     with open('example.json','w') as jsonFile:
         json.dump(json_obj, jsonFile, indent=4)

@@ -32,8 +32,6 @@ class PoseRenderer(PoseDetection):
                 self.Create3DMesh(points, connections)
                 print(f"Completed: {frame_count}")
                 plt.pause(0.001)
-        timeF = time.time()
-        return timeF - timeI
 
 
 
@@ -87,7 +85,7 @@ def animated_plots():
         Z = 0.2*np.cos(3 * np.pi * X + phi) + 0.1*np.sin(2 * np.pi * Y + phi)#* (1 - np.hypot(X, Y))
         print(type(Z))
         # Plot the new wireframe and pause briefly before continuing.
-        wframe = ax.plot_wireframe(X, Y, Z, rstride=5, cstride=1)
+        wframe = ax.plot_wireframe(X, Yl, Z, rstride=5, cstride=1)
         plt.pause(.1)
 
     print('Average FPS: %f' % (100 / (time.time() - tstart)))
@@ -98,9 +96,6 @@ def animated_plots():
 #                  [("head", "leg")])
 #animated_plots()
 def timeFunction(function):
-    timeI = time.time()
-    function.realtime_detection_3d(0)
-    timeF = time.time()
     return timeF - timeI
 
 def practice_function():

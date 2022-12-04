@@ -282,21 +282,22 @@ class UI:
 
             # Create VideoPlayer Widget
             self.player = VideoPlayer((0, 0, 1380, 691), self.parent)
-            #self.AddComponent("VideoPlayer", self.player)
+            self.AddComponent("VideoPlayer", self.player)
+            self.player.hide()
 
             # Initialize VideoPlayer Parameters
-            self.frameCap = None
-            self.normalVideo = None
-            self.poseVideo = None
-            self.video = None
+            self.normalVideo = cv2.VideoCapture("recorded_videos\\debugVideo.mp4")
+            self.poseVideo = cv2.VideoCapture("recorded_videos\\debugVideoMP.mp4")
+            self.video = self.normalVideo
+            self.frameCap = int(self.normalVideo.get(cv2.CAP_PROP_FRAME_COUNT))
+            print(f"Max Amount Of Frames: {self.frameCap}")
             self.playThread = None
             self.playing = False
             self.frame = 0
             self.playbackSpeed = 1.0
 
             # Show Default Image
-            #self.player.changeImage(QtGui.QPixmap("pixmaps\\VideoDebug.jpg").scaled(
-            #    1380, 691, QtCore.Qt.KeepAspectRatio))
+            self.player.changeImageStatic("pixmaps\\VideoDebug.jpg")
 
             # Create Button Panel
             self.panel = QtWidgets.QFrame(self.parent)
@@ -345,7 +346,7 @@ class UI:
             self.replay_button.setFont(self.buttonFont)
             self.replay_button.setText("Replay")
             self.replay_button.clicked.connect(lambda: self.replay())
-            self.AddComponent("VideoPlayeReplay_Button", self.replay_button)
+            self.AddComponent("VideoPlayerReplay_Button", self.replay_button)
 
             # Attach Camera Stream On Frame Open (WORK ON LATER):
             # self.setupFrames = lambda: self.startDebugCameraStream()
@@ -392,41 +393,45 @@ class UI:
             # Toggle Active Button Functions
             if self.active:
                 self.play_button.setText("Play")
+                self.active = not self.active
             else:
+                print("PLAYING VIDEO")
                 self.play_button.setText("Pause")
+
+                # Fix Activity Flipping Issues / Async With Daemon Thread
+                self.active = not self.active
 
                 # Start Daemon Thread
                 self.playThread = threading.Thread(target=self.startStream)
                 self.playThread.setDaemon(True)
                 self.playThread.start()
 
-            self.active = not self.active
             self.nextFrame_button.blockSignals(self.active)
             self.lastFrame_button.blockSignals(self.active)
 
 
 
         def startStream(self):
-
+            print("Streaming Thread Activated")
             tick = 1 / self.video.get(cv2.CAP_PROP_FPS)
 
+            print(f"Initial Frame: {self.frame} of {self.frameCap}")
+
             # Start Video Stream Until Final Frame Reached OR Stopped
-            while self.frame < self.frameCap and not self.active:
+            while self.frame < self.frameCap and self.active:
+                print(f"Playing Frame {self.frame} of {self.frameCap}")
 
                 # Read Active Frame Data And Process
                 _, data = self.video.read()
-                data = cv2.cvtColor(data, cv2.BGR2RGB)
-                image = QtGui.QImage(data, data.shape[1], data.shape[0],
-                                     QtGui.QImage.Format_RGB888)
-                pixmap = QtGui.QPixmap(image).scaled(1380, 691,
-                                                     QtCore.Qt.KeepAspectRatioByExpanding)
-                #self.player.changeImage(pixmap)
+
+                # Change Video Player Image
+                self.player.changeImageCV2(data)
 
                 # Go To Next Frame
                 self.frame += 1
 
                 # Fix Frame Rate Issues
-                sleep(tick)
+                sleep(1)
 
 
         def overlayToggle(self):
