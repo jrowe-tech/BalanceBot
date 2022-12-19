@@ -352,10 +352,13 @@ class UI:
             # self.setupFrames = lambda: self.startDebugCameraStream()
 
         def replay(self):
-            self.video.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            print("Replaying")
             self.frame = 0
 
-            #Update Frame
+            #Play If Not Pre-Activated
+            if not self.playing:
+                self.play()
+
 
         def nextFrame(self):
             if self.frame < self.frameCap:
@@ -391,36 +394,43 @@ class UI:
 
         def play(self):
             # Toggle Active Button Functions
-            if self.active:
+            if self.playing:
                 self.play_button.setText("Play")
-                self.active = not self.active
+                self.playing = not self.playing
             else:
+                if self.frame >= self.frameCap:
+                    self.frame = 0
+
                 print("PLAYING VIDEO")
                 self.play_button.setText("Pause")
 
                 # Fix Activity Flipping Issues / Async With Daemon Thread
-                self.active = not self.active
+                self.playing = not self.playing
 
                 # Start Daemon Thread
                 self.playThread = threading.Thread(target=self.startStream)
                 self.playThread.setDaemon(True)
                 self.playThread.start()
 
-            self.nextFrame_button.blockSignals(self.active)
-            self.lastFrame_button.blockSignals(self.active)
+            self.nextFrame_button.blockSignals(self.playing)
+            self.lastFrame_button.blockSignals(self.playing)
 
 
 
         def startStream(self):
+            # Reset Frame (Due To Async Issues)
+            self.video.set(cv2.CAP_PROP_POS_FRAMES, self.frame)
+
             print("Streaming Thread Activated")
             tick = 1 / self.video.get(cv2.CAP_PROP_FPS)
 
             print(f"Initial Frame: {self.frame} of {self.frameCap}")
 
             # Start Video Stream Until Final Frame Reached OR Stopped
-            while self.frame < self.frameCap and self.active:
+            while self.frame < self.frameCap and self.playing:
                 print(f"Playing Frame {self.frame} of {self.frameCap}")
 
+                print(f"Video Object: {self.video}")
                 # Read Active Frame Data And Process
                 _, data = self.video.read()
 
@@ -430,11 +440,21 @@ class UI:
                 # Go To Next Frame
                 self.frame += 1
 
+                # Stupid-Ass Necessary VideoWrite Function
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    pass
+
                 # Fix Frame Rate Issues
-                sleep(1)
+                # sleep(tick)
+
+                # Test Frame Replay Functionalities
+                cv2.imshow("Test", data)
+
+            self.play()
 
 
         def overlayToggle(self):
+            assert self.video
             if self.video == self.normalVideo:
                 self.video = self.poseVideo
             else:

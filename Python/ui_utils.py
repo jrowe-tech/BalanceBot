@@ -132,6 +132,7 @@ class VideoPlayer(QtWidgets.QWidget):
         # self.pixmap.setPixmap(QtGui.QPixmap("pixmaps\\VideoDebug.jpg"))
 
     def changeImageCV2(self, image):
+        print("CV2 Mat Image Change")
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = QtGui.QImage(image, image.shape[1], image.shape[0],
                              QtGui.QImage.Format_RGB888)
@@ -140,6 +141,7 @@ class VideoPlayer(QtWidgets.QWidget):
         self.pixmap.setPixmap(pixmap)
 
     def changeImageStatic(self, imgPath, scaled=False):
+        print("Static Image Change")
         if scaled:
             pixmap = QtGui.QPixmap(imgPath).scaled(1380, 691,
                         QtCore.Qt.KeepAspectRatioByExpanding)
