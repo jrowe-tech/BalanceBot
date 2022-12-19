@@ -2,11 +2,21 @@
   {
     "name": "debugVideo.mp4",
     "date": "01-01-2022",
-    "thumbnail": "test.jpg"
+    "thumbnail": "test1.png"
   },
   {
     "name": "debugVideoMP.mp4",
     "date": "01-01-2022",
-    "thumbnail": "test.jpg"
+    "thumbnail": "test2.png"
+  },
+  {
+    "name": "debugVideo.mp4",
+    "date": "01-01-2022",
+    "thumbnail": "test3.png"
+  },
+  {
+    "name": "debugVideoMP.mp4",
+    "date": "01-01-2022",
+    "thumbnail": "test4.png"
   }
 ]
