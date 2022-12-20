@@ -292,7 +292,7 @@ def arduinoStream(path, width, height):
         video_writer.release()
         cap.release()
 
-def videoPlayback(basePath):
+def videoPlayback(basePath, width, height):
     # Create Video Capture Objects
     cap1 = cv2.VideoCapture(basePath)
     cap2 = cv2.VideoCapture(basePath.replace(".mp4", "MP.mp4"))
@@ -310,6 +310,7 @@ def videoPlayback(basePath):
     playing = False
     frame_counter = 0
     frame_cap = int(cap2.get(cv2.CAP_PROP_FRAME_COUNT))
+    ui_color = (40, 40, 40)
 
     # Set Initial Playing Video
     currentVideo = cap1
@@ -326,7 +327,7 @@ def videoPlayback(basePath):
                 # Grab Frame For Display
                 display = frame.copy()
 
-
+                # Write Pause Button Onto Widget
 
                 # Declare End Of Video
                 if frame_counter == frame_cap:
@@ -364,6 +365,10 @@ def videoPlayback(basePath):
             if key in {39, 100}:
                 pass
                 #put frame skipping code here
+
+        # Augment Final Display Frame
+        display = cv2.resize(display, (width, height))
+        display = cv2.line(display, )
 
         # Show Final Display Frame
         cv2.imshow('Display', display)
