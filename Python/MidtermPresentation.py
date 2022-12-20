@@ -3,6 +3,9 @@ import statistics
 from serial_driver import Driver
 from threading import Thread
 import mediapipe as mp
+import os
+import pygame
+from time import sleep as s
 
 mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
@@ -10,7 +13,10 @@ mp_styles = mp.solutions.drawing_styles
 
 def video2MP(capturePath):
     # Video Capture From CAPTUREPATH
-    cap = cv2.VideoCapture("recorded_videos\\" + capturePath)
+    cap = cv2.VideoCapture(capturePath)
+
+    # Create Loading Template
+    template = cv2.imread("pixmaps\\PercentageTemplate.png")
 
     #Get Frames Per Second
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -18,13 +24,13 @@ def video2MP(capturePath):
     # Setup Configuration Frame
     _, config_frame = cap.read()
     print(config_frame)
-    video_writer = cv2.VideoWriter("recorded_videos\\" + capturePath + "MP.mp4", 0x7634706d, fps,
+    video_writer = cv2.VideoWriter(capturePath.replace(".mp4", "MP.mp4"), 0x7634706d, fps,
                                    (config_frame.shape[1], config_frame.shape[0]))
 
     # Reset Active Frame To 0 And Reset Frame Counter
     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
     frame_counter = 0
-    frame_cap = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+    frame_cap = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
     # Setup Pose Detection:
     # Static Image -> False
@@ -44,7 +50,7 @@ def video2MP(capturePath):
 
             if active:
 
-                print(f"Processing Frame {frame_counter} of {frame_cap}")
+                # print(f"Processing Frame {frame_counter} of {frame_cap}")
 
                 frame.flags.writeable = False
 
@@ -63,8 +69,25 @@ def video2MP(capturePath):
                 # Write To Save Path
                 video_writer.write(frame)
 
+                # Display Widget
+                display = template.copy()
+                display = cv2.putText(display, str(frame_counter),
+                                      (225, 190), cv2.FONT_HERSHEY_SIMPLEX,
+                                      2, (255, 255, 255), 2, cv2.LINE_AA)
+                display = cv2.putText(display, str(frame_cap),
+                                      (425, 190), cv2.FONT_HERSHEY_SIMPLEX,
+                                      2, (255, 255, 255), 2, cv2.LINE_AA)
+                display = cv2.putText(display, f"{frame_counter * 100 / frame_cap:.2f}",
+                                      (260, 270), cv2.FONT_HERSHEY_SIMPLEX,
+                                      1, (255, 255, 255), 2, cv2.LINE_AA)
+                cv2.imshow('Display', display)
+
+                _ = cv2.waitKey(1)
+
+
     # Release Video Writer For Low Latency
     video_writer.release()
+    cap.release()
 
 #Directly import PIPE
 class Pipe:
@@ -132,14 +155,25 @@ class Pipe:
             print(f"Current Step Count: {self.currentSteps}")
 
 
-def arduinoStream():
+def arduinoStream(path, width, height):
     # For webcam input:
     cap = cv2.VideoCapture(0)
+
+    # Reset Frames
+    cv2.destroyAllWindows()
+
     width = 1280
     height = 720
 
+    # Create / Use Configuration Frame
+    _, config_frame = cap.read()
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    video_writer = cv2.VideoWriter(path, 0x7634706d, fps,
+                                   (config_frame.shape[1], config_frame.shape[0]))
+
+
     # Call Custom Arduino Pipeline
-    pipe = Pipe()
+    # pipe = Pipe()
 
     print("Camera Setting Completed")
 
@@ -164,17 +198,18 @@ def arduinoStream():
                 # If loading a video, use 'break' instead of 'continue'.
                 continue
 
-            image = cv2.resize(image, (640, 360))
+            poseImage = image.copy()
+            image.flags.writeable = False
 
             # To improve performance, optionally mark the image as not writeable to
             # pass by reference.
-            image.flags.writeable = False
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            results = pose.process(image)
+            poseImage.flags.writeable = False
+            poseImage = cv2.cvtColor(poseImage, cv2.COLOR_BGR2RGB)
+            results = pose.process(poseImage)
 
             # Draw the pose annotation on the image.
-            image.flags.writeable = True
-            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+            poseImage.flags.writeable = True
+            poseImage = cv2.cvtColor(poseImage, cv2.COLOR_RGB2BGR)
 
             if results.pose_landmarks is not None:
 
@@ -194,26 +229,27 @@ def arduinoStream():
                 ShAvgx = int(statistics.mean(ShX_List))
                 ShAvgy = int(statistics.mean(ShY_List))
 
-                image = cv2.resize(image, (width, height))
+                poseImage = cv2.resize(poseImage, (width, height))
 
-                cv2.ellipse(image, (ShAvgx, ShAvgy), (4, 4), 0, 0, 360, (0, 255, 0), 4)
+                cv2.ellipse(poseImage, (ShAvgx, ShAvgy), (4, 4), 0, 0, 360, (0, 255, 0), 4)
 
                 midpoint = 640
-                min_pixels = 10
+                min_speed = 10
                 distance_from_center = (abs(ShAvgx - 640)) / 180
                 distance_from_center = distance_from_center * (180 / 640)
                 motor_speed = round(max_motor_speed * distance_from_center)
 
-
                 num_steps = round(motor_speed / 10)
 
+                if motor_speed < min_speed:
+                    num_steps = 0
 
-                pipe.steps = num_steps
-                pipe.speed = motor_speed
+                # pipe.steps = num_steps
+                # pipe.speed = motor_speed
 
                 if ShAvgx > 640:
                     num_steps = 1 * num_steps
-                    pipe.polarity = 0
+                    # pipe.polarity = 0
                     direction = "<-----"
 
                     if Limit_1 > 0:
@@ -221,7 +257,7 @@ def arduinoStream():
                         num_steps = 0
 
                 else:
-                    pipe.polarity = 1
+                    # pipe.polarity = 1
                     direction = "----->"
 
                     if Limit_2 > 0:
@@ -233,21 +269,154 @@ def arduinoStream():
                 print("DIRECTION: " + direction)
 
             else:
-                pipe.speed = 0
-                pipe.steps = 0
+                pass
+                # pipe.speed = 0
+                # pipe.steps = 0
 
-            image = cv2.resize(image, (width, height))
+            poseImage = cv2.flip(poseImage, 1)
 
             # Flip the image horizontally for a selfie-view display.
-            cv2.imshow('MediaPipe Pose', cv2.flip(image, 1))
+            cv2.imshow('Display', poseImage)
             frameCount = frameCount + 1
 
-            if cv2.waitKey(5) & 0xFF == 27:
+            # Write The Current Frame
+            video_writer.write(image)
+
+            if cv2.waitKey(1) & 0xFF in (27, 13):
+                # pipe.speed = 0
+                # pipe.steps = 0
+                # pipe.port.closePort()
                 break
 
-def main():
-    fileName = str(input("Insert Recorded File Name"))
-    input("Hit Enter To Begin Following")
+        # Release Streaming Agents
+        video_writer.release()
+        cap.release()
 
+def videoPlayback(basePath):
+    # Create Video Capture Objects
+    cap1 = cv2.VideoCapture(basePath)
+    cap2 = cv2.VideoCapture(basePath.replace(".mp4", "MP.mp4"))
+
+    # Setup Configuration Frame
+    _, config_frame = cap.read()
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    video_writer = cv2.VideoWriter(capturePath.replace(".mp4", "MP.mp4"), 0x7634706d, fps,
+                                   (config_frame.shape[1], config_frame.shape[0]))
+
+    # Reset Video
+    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
+    # Configure Local Variables
+    playing = False
+    frame_counter = 0
+    frame_cap = int(cap2.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    # Set Initial Playing Video
+    currentVideo = cap1
+
+    # Create Playback Loop
+    while True:
+        if playing:
+            active, frame = currentVideo.read()
+
+            if active:
+                # Frame Counter
+                frame_counter += 1
+
+                # Grab Frame For Display
+                display = frame.copy()
+
+
+
+                # Declare End Of Video
+                if frame_counter == frame_cap:
+                    playing = False
+
+        else:
+            if frame:
+                display = frame.copy()
+
+
+
+        # Get Keybinds For Control Scheme -> Might Switch To Hashmap For Optimization
+        key = cv2.waitKey(1)
+        if key == 27:
+            break
+        elif key in {13, 32}:
+            print("Switching On/Off")
+            playing = not playing
+        elif key == 114:
+            print("Restarting Video")
+            frame_counter = 0
+            currentVideo.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            playing = True
+
+        elif key == 111:
+            if currentVideo == cap1:
+                currentVideo = cap2
+            else:
+                currentVideo = cap1
+        elif not playing:
+            if key in {37, 65}:
+                pass
+                # put frame skipping code here
+
+            if key in {39, 100}:
+                pass
+                #put frame skipping code here
+
+        # Show Final Display Frame
+        cv2.imshow('Display', display)
+
+
+
+    # Reset Video Captures And Stop Function
+    cap1.release()
+    cap2.release()
+
+
+
+
+def main(displaySize=(640, 360)):
+    pygame.init()
+
+    fileName = str(input("Insert Recorded File Directory >>> "))
+    if '.mp4' not in fileName:
+        fileName += ".mp4"
+
+    beep = pygame.mixer.Sound('sounds\\beep.wav')
+    boop = pygame.mixer.Sound('sounds\\boop.wav')
+
+    # Setup UI To Begin
+    cv2.imshow('Display', cv2.imread('pixmaps\\MidtermOpening.png'))
+    cv2.waitKey(0)
+
+    # Play Funny Countdown
+    cv2.imshow('Display', cv2.imread('pixmaps\\Slide3.png'))
+    _ = cv2.waitKey(1)
+    beep.play()
+    s(1)
+
+    cv2.imshow('Display', cv2.imread('pixmaps\\Slide2.png'))
+    _ = cv2.waitKey(1)
+    beep.play()
+    s(1)
+
+    cv2.imshow('Display', cv2.imread('pixmaps\\Slide1.png'))
+    _ = cv2.waitKey(1)
+    beep.play()
+    s(1)
+
+    # Boop
+    boop.play()
+
+    # Record The Video
+    arduinoStream(fileName, displaySize[0], displaySize[1])
+
+    # Process The Video
+    video2MP(fileName)
+
+    # Create OpenCV Videoplayer Widget
+    videoPlayback(fileName)
 
 main()

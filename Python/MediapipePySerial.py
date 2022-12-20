@@ -78,7 +78,7 @@ width = 1280
 height = 720
 
 # Call Custom Arduino Pipeline
-pipe = Pipe()
+# pipe = Pipe()
 
 print("Camera Setting Completed")
 
@@ -143,16 +143,15 @@ with mp_pose.Pose(
             distance_from_center = distance_from_center * (180 / 640)
             motor_speed = round(max_motor_speed * distance_from_center)
 
-
             num_steps = round(motor_speed / 10)
 
+            # pipe.steps = num_steps
+            # pipe.speed = motor_speed
 
-            pipe.steps = num_steps
-            pipe.speed = motor_speed
 
             if ShAvgx > 640:
                 num_steps = 1 * num_steps
-                pipe.polarity = 0
+                # pipe.polarity = 0
                 direction = "<-----"
 
                 if Limit_1 > 0:
@@ -160,20 +159,23 @@ with mp_pose.Pose(
                     num_steps = 0
 
             else:
-                pipe.polarity = 1
+                # pipe.polarity = 1
                 direction = "----->"
 
                 if Limit_2 > 0:
                     motor_speed = 0
                     num_steps = 0
 
+            if motor_speed <= min_speed:
+
             print("MOTOR SPEED: ", motor_speed)
             print("STEPS: ", num_steps)
             print("DIRECTION: " + direction)
 
         else:
-            pipe.speed = 0
-            pipe.steps = 0
+            pass
+            # pipe.speed = 0
+            # pipe.steps = 0
 
         image = cv2.resize(image, (width, height))
 
