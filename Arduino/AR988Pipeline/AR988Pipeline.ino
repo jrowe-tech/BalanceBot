@@ -150,7 +150,7 @@ void serialLoop() {
 }
 
 void fastDigitalWrite(int state) {
-  PORTD |= B00000001 & state  
+  PORTD |= B00000001 & state;
 }
 
 void yummyTrash() {

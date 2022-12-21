@@ -12,6 +12,34 @@ mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
 mp_styles = mp.solutions.drawing_styles
 
+def beepboop():
+    # Beep and Boop
+    beep = pygame.mixer.Sound('sounds\\beep.wav')
+    boop = pygame.mixer.Sound('sounds\\boop.wav')
+
+    # Setup UI To Begin
+    cv2.imshow('Display', cv2.imread('pixmaps\\MidtermOpening.png'))
+    cv2.waitKey(0)
+
+    # Play Funny Countdown
+    cv2.imshow('Display', cv2.imread('pixmaps\\Slide3.png'))
+    _ = cv2.waitKey(1)
+    beep.play()
+    s(1)
+
+    cv2.imshow('Display', cv2.imread('pixmaps\\Slide2.png'))
+    _ = cv2.waitKey(1)
+    beep.play()
+    s(1)
+
+    cv2.imshow('Display', cv2.imread('pixmaps\\Slide1.png'))
+    _ = cv2.waitKey(1)
+    beep.play()
+    s(1)
+
+    # Boop
+    boop.play()
+
 def video2MP(capturePath):
     # Video Capture From CAPTUREPATH
     cap = cv2.VideoCapture(capturePath)
@@ -156,11 +184,16 @@ class Pipe:
 
 
 def arduinoStream(path, frameWidth, frameHeight):
-    # For webcam input:
-    cap = cv2.VideoCapture(0)
+    beepboop()
+
+    pipe = Pipe()
+
+    beepboop()
 
     # Reset Frames
     cv2.destroyAllWindows()
+
+    cap = cv2.VideoCapture(1)
 
     width = 1280
     height = 720
@@ -170,10 +203,6 @@ def arduinoStream(path, frameWidth, frameHeight):
     fps = cap.get(cv2.CAP_PROP_FPS)
     video_writer = cv2.VideoWriter(path, 0x7634706d, fps,
                                    (config_frame.shape[1], config_frame.shape[0]))
-
-
-    # Call Custom Arduino Pipeline
-    # pipe = Pipe()
 
     print("Camera Setting Completed")
 
@@ -244,12 +273,12 @@ def arduinoStream(path, frameWidth, frameHeight):
                 if motor_speed < min_speed:
                     num_steps = 0
 
-                # pipe.steps = num_steps
-                # pipe.speed = motor_speed
+                pipe.steps = num_steps
+                pipe.speed = motor_speed
 
                 if ShAvgx > 640:
                     num_steps = 1 * num_steps
-                    # pipe.polarity = 0
+                    pipe.polarity = 1
                     direction = "<-----"
 
                     if Limit_1 > 0:
@@ -257,7 +286,7 @@ def arduinoStream(path, frameWidth, frameHeight):
                         num_steps = 0
 
                 else:
-                    # pipe.polarity = 1
+                    pipe.polarity = 0
                     direction = "----->"
 
                     if Limit_2 > 0:
@@ -268,10 +297,12 @@ def arduinoStream(path, frameWidth, frameHeight):
                 print("STEPS: ", num_steps)
                 print("DIRECTION: " + direction)
 
+                # Write The Current Frame
+                video_writer.write(image)
+
             else:
-                pass
-                # pipe.speed = 0
-                # pipe.steps = 0
+                pipe.speed = 0
+                pipe.steps = 0
 
             poseImage = cv2.flip(poseImage, 1)
 
@@ -281,12 +312,12 @@ def arduinoStream(path, frameWidth, frameHeight):
             frameCount = frameCount + 1
 
             # Write The Current Frame
-            video_writer.write(image)
+            # video_writer.write(image)
 
             if cv2.waitKey(1) & 0xFF in (27, 13):
-                # pipe.speed = 0
-                # pipe.steps = 0
-                # pipe.port.closePort()
+                pipe.speed = 0
+                pipe.steps = 0
+                pipe.port.closePort()
                 break
 
         # Release Streaming Agents
@@ -358,7 +389,7 @@ def videoPlayback(basePath, width, height):
         elif key == 114:
             frame_counter = 0
             currentVideo.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            playing = True
+            active, frame = currentVideo.read()
         elif key == 111 and frame_counter > 0:
             if currentVideo == cap1:
                 currentVideo = cap2
@@ -382,7 +413,7 @@ def videoPlayback(basePath, width, height):
         display = cv2.line(display, (0, height-45), (width, height-45), ui_color, 2)
         display = cv2.line(display, (45, height), (45, height-45), ui_color, 2)
         display = cv2.line(display, (60, height-20), (width-15, height-20), (0, 0, 0), 7)
-        lineWidth = int(((frame_counter+1) / (frame_cap+1)) * (width-75)) + 60
+        lineWidth = int(((frame_counter) / (frame_cap)) * (width-75)) + 60
         display = cv2.line(display, (60, height-20), (lineWidth, height-20), (0, 0, 255), 7)
 
         if playing:
@@ -410,33 +441,6 @@ def main(displaySize=(640, 360)):
     fileName = str(input("Insert Recorded File Directory >>> "))
     if '.mp4' not in fileName:
         fileName += ".mp4"
-
-    # Beep and Boop
-    beep = pygame.mixer.Sound('sounds\\beep.wav')
-    boop = pygame.mixer.Sound('sounds\\boop.wav')
-
-    # Setup UI To Begin
-    cv2.imshow('Display', cv2.imread('pixmaps\\MidtermOpening.png'))
-    cv2.waitKey(0)
-
-    # Play Funny Countdown
-    cv2.imshow('Display', cv2.imread('pixmaps\\Slide3.png'))
-    _ = cv2.waitKey(1)
-    beep.play()
-    s(1)
-
-    cv2.imshow('Display', cv2.imread('pixmaps\\Slide2.png'))
-    _ = cv2.waitKey(1)
-    beep.play()
-    s(1)
-
-    cv2.imshow('Display', cv2.imread('pixmaps\\Slide1.png'))
-    _ = cv2.waitKey(1)
-    beep.play()
-    s(1)
-
-    # Boop
-    boop.play()
 
     # Record The Video
     arduinoStream(fileName, displaySize[0], displaySize[1])
