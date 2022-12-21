@@ -5,6 +5,7 @@ from threading import Thread
 import mediapipe as mp
 import os
 import pygame
+import numpy as np
 from time import sleep as s
 
 mp_pose = mp.solutions.pose
@@ -39,8 +40,8 @@ def video2MP(capturePath):
     with mp_pose.Pose(static_image_mode=False,
                       model_complexity=2,
                       enable_segmentation=True,
-                      min_detection_confidence=0.8,
-                      min_tracking_confidence=0.8) as pose:
+                      min_detection_confidence=0.6,
+                      min_tracking_confidence=0.6) as pose:
         while True:
             # Count Frames
             frame_counter += 1
@@ -101,6 +102,7 @@ class Pipe:
         self.currentSteps = 0
         self.polarity = 0
         self.steps = 0
+        self.switch = 'N'
 
         thread = Thread(target=self.writeSerial, daemon=True)
         thread.start()
@@ -136,10 +138,8 @@ class Pipe:
             self.data = self.port.readLine()
 
             if len(self.data) == 4 and chr(self.data[0]) in self.switchStates:
-                # print(f"Read Data: {self.data}")
-                # print(f"Limit Switch State: {chr(self.data[0])}")
                 self.currentSteps = self.decompileBytesLeft(self.data[1:4])
-                # print(f"Arduino Steps: {currentSteps}")
+                self.switchStates = chr(self.data[0])
                 self.dataCount += 1
 
     def decompileBytesLeft(self, data: list) -> int:
@@ -155,7 +155,7 @@ class Pipe:
             print(f"Current Step Count: {self.currentSteps}")
 
 
-def arduinoStream(path, width, height):
+def arduinoStream(path, frameWidth, frameHeight):
     # For webcam input:
     cap = cv2.VideoCapture(0)
 
@@ -276,6 +276,7 @@ def arduinoStream(path, width, height):
             poseImage = cv2.flip(poseImage, 1)
 
             # Flip the image horizontally for a selfie-view display.
+            poseImage = cv2.resize(poseImage, (frameWidth, frameHeight))
             cv2.imshow('Display', poseImage)
             frameCount = frameCount + 1
 
@@ -298,19 +299,22 @@ def videoPlayback(basePath, width, height):
     cap2 = cv2.VideoCapture(basePath.replace(".mp4", "MP.mp4"))
 
     # Setup Configuration Frame
-    _, config_frame = cap.read()
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    video_writer = cv2.VideoWriter(capturePath.replace(".mp4", "MP.mp4"), 0x7634706d, fps,
-                                   (config_frame.shape[1], config_frame.shape[0]))
+    _, config_frame = cap2.read()
+    fps = cap2.get(cv2.CAP_PROP_FPS)
+    print(f"FPS: {fps}")
 
     # Reset Video
-    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+    cap2.set(cv2.CAP_PROP_POS_FRAMES, 0)
 
     # Configure Local Variables
     playing = False
     frame_counter = 0
     frame_cap = int(cap2.get(cv2.CAP_PROP_FRAME_COUNT))
-    ui_color = (40, 40, 40)
+    print(f"Total Frames: {frame_cap}\n"
+          f"Total Seconds: {frame_cap / fps:.2f}")
+    ui_color = (10, 10, 10)
+    frame = None
+    display = cv2.imread("pixmaps\\BlankTemplate.png")
 
     # Set Initial Playing Video
     currentVideo = cap1
@@ -332,9 +336,10 @@ def videoPlayback(basePath, width, height):
                 # Declare End Of Video
                 if frame_counter == frame_cap:
                     playing = False
+            s(1 / fps)
 
         else:
-            if frame:
+            if frame is not None:
                 display = frame.copy()
 
 
@@ -344,31 +349,48 @@ def videoPlayback(basePath, width, height):
         if key == 27:
             break
         elif key in {13, 32}:
-            print("Switching On/Off")
-            playing = not playing
+            if (frame_counter == frame_cap):
+                frame_counter = 0
+                currentVideo.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                playing = True
+            else:
+                playing = not playing
         elif key == 114:
-            print("Restarting Video")
             frame_counter = 0
             currentVideo.set(cv2.CAP_PROP_POS_FRAMES, 0)
             playing = True
-
-        elif key == 111:
+        elif key == 111 and frame_counter > 0:
             if currentVideo == cap1:
                 currentVideo = cap2
             else:
                 currentVideo = cap1
+            currentVideo.set(cv2.CAP_PROP_POS_FRAMES, frame_counter - 1)
+            active, frame = currentVideo.read()
         elif not playing:
-            if key in {37, 65}:
-                pass
-                # put frame skipping code here
+            if key == 97 and frame_counter > 1:
+                currentVideo.set(cv2.CAP_PROP_POS_FRAMES, frame_counter - 2)
+                active, frame = currentVideo.read()
+                frame_counter -= 1
 
-            if key in {39, 100}:
-                pass
-                #put frame skipping code here
+            if key == 100 and frame_counter < frame_cap - 1:
+                active, frame = currentVideo.read()
+                frame_counter += 1
+
 
         # Augment Final Display Frame
         display = cv2.resize(display, (width, height))
-        display = cv2.line(display, )
+        display = cv2.line(display, (0, height-45), (width, height-45), ui_color, 2)
+        display = cv2.line(display, (45, height), (45, height-45), ui_color, 2)
+        display = cv2.line(display, (60, height-20), (width-15, height-20), (0, 0, 0), 7)
+        lineWidth = int(((frame_counter+1) / (frame_cap+1)) * (width-75)) + 60
+        display = cv2.line(display, (60, height-20), (lineWidth, height-20), (0, 0, 255), 7)
+
+        if playing:
+            display = cv2.line(display, (15, height-10), (15, height-30), (255, 255, 255), 2)
+            display = cv2.line(display, (30, height-10), (30, height-30), (255, 255, 255), 2)
+        else:
+            cv2.fillPoly(display, pts=[np.array([[15, height-10], [15, height-30], [30, height-20]])],
+                         color=(255, 255, 255))
 
         # Show Final Display Frame
         cv2.imshow('Display', display)
@@ -389,6 +411,7 @@ def main(displaySize=(640, 360)):
     if '.mp4' not in fileName:
         fileName += ".mp4"
 
+    # Beep and Boop
     beep = pygame.mixer.Sound('sounds\\beep.wav')
     boop = pygame.mixer.Sound('sounds\\boop.wav')
 
@@ -422,6 +445,12 @@ def main(displaySize=(640, 360)):
     video2MP(fileName)
 
     # Create OpenCV Videoplayer Widget
-    videoPlayback(fileName)
+    videoPlayback(fileName, displaySize[0], displaySize[1])
 
-main()
+    # Create Final Frame
+    cv2.imshow('Display', cv2.imread('pixmaps\\FinalSlide.png'))
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
+main(displaySize=(800, 600))
